@@ -93,112 +93,23 @@ function `_setImplementation`(address implementation_, bool allowResign, bytes m
 }   
 
 - function `mintFresh`(address minter, uint mintAmount) internal returns (uint, uint) {
-  /* Fail if mint not allowed */
   uint allowed = comptroller.mintAllowed(address(this), minter, mintAmount);
-  if (allowed != 0) {
-    return (failOpaque(Error.COMPTROLLER_REJECTION, FailureInfo.MINT_COMPTROLLER_REJECTION, allowed), 0);
-  }
-
-  /* Verify market's block number equals current block number */
-  if (accrualBlockNumber != getBlockNumber()) {
-    return (fail(Error.MARKET_NOT_FRESH, FailureInfo.MINT_FRESHNESS_CHECK), 0);
-  }
+  if (allowed != 0) {return (failOpaque(Error.COMPTROLLER_REJECTION, FailureInfo.MINT_COMPTROLLER_REJECTION, allowed), 0);}
+  if (accrualBlockNumber != getBlockNumber()) {return (fail(Error.MARKET_NOT_FRESH, FailureInfo.MINT_FRESHNESS_CHECK), 0);}
 
   MintLocalVars memory vars;
 
   vars.`exchangeRateMantissa` = `exchangeRateStoredInternal()`;
+  * `exchangeRate = (totalCash + totalBorrows - totalReserves) / totalSupply`
 
-  function `exchangeRateStoredInternal()` internal view returns (uint) {
+  `function exchangeRateStoredInternal() internal view returns (uint) {
     uint _totalSupply = totalSupply;
     if (_totalSupply == 0) {
       return initialExchangeRateMantissa;
       } else {
-        /*
-        ** Otherwise:
-        **  `exchangeRate = (totalCash + totalBorrows - totalReserves) / totalSupply`
-        */
         uint totalCash = getCashPrior();
         uint cashPlusBorrowsMinusReserves = sub_(add_(totalCash, totalBorrows), totalReserves);
         uint exchangeRate = div_(cashPlusBorrowsMinusReserves, Exp({mantissa: _totalSupply}));
         return exchangeRate;
       }
-    }
-
-
-    /////////////////////////
-    // EFFECTS & INTERACTIONS
-    // (No safe failures beyond this point)
-    //
-    //  We call doTransferIn for the minter and the mintAmount.
-    //  Note: The cToken must handle variations between ERC-20 and ETH underlying.
-    //  doTransferIn reverts if anything goes wrong, since we can't be sure if
-    //  side-effects occurred. The function returns the amount actually transferred,
-    //  in case of a fee. On success, the cToken holds an additional actualMintAmount
-    //  of cash.
-    //
-
-    vars.`actualMintAmount` = doTransferIn(minter, mintAmount);
-
-    //
-    // We get the current exchange rate and calculate the number of cTokens to be minted:
-    // `mintTokens = actualMintAmount / exchangeRate`
-    //
-
-    vars.`mintTokens` = `div_ScalarByExpTruncate`(vars.`actualMintAmount`, Exp({mantissa: vars.`exchangeRateMantissa`}));
-
-    //
-    //  We calculate the new total supply of cTokens and minter token balance, checking for overflow:
-    //  totalSupplyNew = totalSupply + mintTokens
-    //  accountTokensNew = accountTokens[minter] + mintTokens
-    //
-
-    vars.totalSupplyNew = add_(totalSupply, vars.mintTokens);
-    vars.accountTokensNew = add_(accountTokens[minter], vars.mintTokens);
-
-    /* We write previously calculated values into storage */
-    totalSupply = vars.totalSupplyNew;
-    accountTokens[minter] = vars.accountTokensNew;
-
-    /* We emit a Mint event, and a Transfer event */
-    emit Mint(minter, vars.actualMintAmount, vars.mintTokens);
-    emit Transfer(address(this), minter, vars.mintTokens);
-
-    /* We call the defense hook */
-    comptroller.mintVerify(address(this), minter, vars.actualMintAmount, vars.mintTokens);
-
-    return (uint(Error.NO_ERROR), vars.actualMintAmount);
-  }
-
-  /*
-  ** Divide a scalar by an Exp, then truncate to return an unsigned integer.
-  */
-  function `div_ScalarByExpTruncate`(uint scalar, Exp memory divisor) pure internal returns (uint) {
-    Exp memory fraction = `div_ScalarByExp`(scalar, divisor);
-    return `truncate`(fraction);
-  }
-
-    uint constant `expScale` = 1e18;
-
-  /*
-  **  Divide a scalar by an Exp, returning a new Exp.
-  */
-  function `div_ScalarByExp`(uint scalar, Exp memory divisor) pure internal returns (Exp memory) {
-    /*
-    ** How it works:
-    ** Exp = a / b;
-    ** Scalar = s;
-    ** s / (a / b) = b * s / a and since for an Exp a = mantissa, b = expScale
-    */
-    uint numerator = mul_(expScale, scalar);
-    return Exp({mantissa: div_(numerator, divisor)});
-  }
-
-  /*
-   ** Truncates the given exp to a whole number value.
-   **      For example, truncate(Exp{mantissa: 15 * expScale}) = 15
-   */
-  function `truncate`(Exp memory exp) pure internal returns (uint) {
-      // Note: We are not using careful math here as we're performing a division that cannot fail
-      return exp.mantissa / expScale;
-  }
-
+    }`
