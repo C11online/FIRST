@@ -39,20 +39,12 @@
 
 ## cyWETH `0x41c84c0e2EE0b740Cf0d31F63f3B6F627DC6b393`
 
-- function `mint`(uint mintAmount) external returns (uint) {
-  mintAmount; // Shh
-  `delegateAndReturn();`
+- function `mint`(uint mintAmount) external returns (uint) {mintAmount;`delegateAndReturn();`}
 
-}
-
-- function `redeem`(uint redeemTokens) external returns (uint) {
-  redeemTokens; // Shh
-  `delegateAndReturn();`
-}    
+- function `redeem`(uint redeemTokens) external returns (uint) {redeemTokens;`delegateAndReturn();`}    
 
 - function `delegateAndReturn()` private returns (bytes memory) {
   (bool success, ) = `implementation`.delegatecall(msg.data);
-
   assembly {
     let free_mem_ptr := mload(0x40)
     returndatacopy(free_mem_ptr, 0, returndatasize)
@@ -68,18 +60,14 @@
 
 function `_setImplementation`(address implementation_, bool allowResign, bytes memory becomeImplementationData) public {
   require(`msg.sender == admin`, "CErc20Delegator::_setImplementation: Caller must be admin");
-  if (allowResign) {
-    delegateToImplementation(abi.encodeWithSignature("_resignImplementation()"));
-  }
+  if (allowResign) {delegateToImplementation(abi.encodeWithSignature("_resignImplementation()"));}
   address oldImplementation = implementation;
   `implementation` = implementation_;
   delegateToImplementation(abi.encodeWithSignature("_becomeImplementation(bytes)", becomeImplementationData));
   emit NewImplementation(oldImplementation, implementation);
 }
 
-
 ## implementation `0x1a9e503562ce800ea8e68e2cf0cfa0aec2edb509`
-
 
 - function `mint`(uint mintAmount) external returns (uint) {
   (uint err,) = `mintInternal`(mintAmount);
@@ -116,7 +104,7 @@ function `_setImplementation`(address implementation_, bool allowResign, bytes m
 
 
   vars.`actualMintAmount` = doTransferIn(minter, mintAmount);
-  
+
   vars.`mintTokens` = `div_ScalarByExpTruncate`(vars.`actualMintAmount`, Exp({mantissa: vars.`exchangeRateMantissa`}));
   *  (`actualMintAmount` * `expScale` / `exchangeRateMantissa`) / `expScale`
   *  How it works: Exp = a / b; Scalar = s; s / (a / b) = b * s / a and since for an Exp a = mantissa, b = `expScale`
@@ -131,18 +119,18 @@ function `_setImplementation`(address implementation_, bool allowResign, bytes m
       }`
   *   `function truncate(Exp memory exp) pure internal returns (uint) {
       return exp.mantissa / expScale;
-      } ` 
- 
+      } `
+
   vars.totalSupplyNew = add_(totalSupply, vars.mintTokens);
-  
+
   vars.accountTokensNew = add_(accountTokens[minter], vars.mintTokens);
 
   totalSupply = vars.totalSupplyNew;
-  
+
   accountTokens[minter] = vars.accountTokensNew;
 
   emit Mint(minter, vars.actualMintAmount, vars.mintTokens);
-  
+
   emit Transfer(address(this), minter, vars.mintTokens);
 
   comptroller.mintVerify(address(this), minter, vars.actualMintAmount, vars.mintTokens);
