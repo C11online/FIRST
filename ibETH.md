@@ -106,7 +106,7 @@ function `_setImplementation`(address implementation_, bool allowResign, bytes m
   vars.`actualMintAmount` = doTransferIn(minter, mintAmount);
 
   vars.`mintTokens` = `div_ScalarByExpTruncate`(vars.`actualMintAmount`, Exp({mantissa: vars.`exchangeRateMantissa`}));
-  *  (`actualMintAmount` * `expScale` / `exchangeRateMantissa`) / `expScale`
+  *  `mintTokens` = (`actualMintAmount` * `expScale` / `exchangeRateMantissa`) / `expScale`
   *  How it works: Exp = a / b; Scalar = s; s / (a / b) = b * s / a and since for an Exp a = mantissa, b = `expScale`
   *  uint constant `expScale` = 1e18;
   *   `function div_ScalarByExpTruncate(uint scalar, Exp memory divisor) pure internal returns (uint) {
