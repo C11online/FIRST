@@ -113,3 +113,39 @@ function `_setImplementation`(address implementation_, bool allowResign, bytes m
         return exchangeRate;
       }
     }`
+
+
+  vars.`actualMintAmount` = doTransferIn(minter, mintAmount);
+  
+  vars.`mintTokens` = `div_ScalarByExpTruncate`(vars.`actualMintAmount`, Exp({mantissa: vars.`exchangeRateMantissa`}));
+  *  (`actualMintAmount` * `expScale` / `exchangeRateMantissa`) / `expScale`
+  *  How it works: Exp = a / b; Scalar = s; s / (a / b) = b * s / a and since for an Exp a = mantissa, b = `expScale`
+  *  uint constant `expScale` = 1e18;
+  *   `function div_ScalarByExpTruncate(uint scalar, Exp memory divisor) pure internal returns (uint) {
+      Exp memory fraction = div_ScalarByExp(scalar, divisor);
+      return truncate(fraction);
+      }`
+  *   `function div_ScalarByExp(uint scalar, Exp memory divisor) pure internal returns (Exp memory) {
+      uint numerator = mul_(expScale, scalar);
+      return Exp({mantissa: div_(numerator, divisor)});
+      }`
+  *   `function truncate(Exp memory exp) pure internal returns (uint) {
+      return exp.mantissa / expScale;
+      } ` 
+ 
+  vars.totalSupplyNew = add_(totalSupply, vars.mintTokens);
+  
+  vars.accountTokensNew = add_(accountTokens[minter], vars.mintTokens);
+
+  totalSupply = vars.totalSupplyNew;
+  
+  accountTokens[minter] = vars.accountTokensNew;
+
+  emit Mint(minter, vars.actualMintAmount, vars.mintTokens);
+  
+  emit Transfer(address(this), minter, vars.mintTokens);
+
+  comptroller.mintVerify(address(this), minter, vars.actualMintAmount, vars.mintTokens);
+
+  return (uint(Error.NO_ERROR), vars.actualMintAmount);
+  }
